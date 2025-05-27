@@ -1,45 +1,58 @@
-<!--
-README for the OpenRelik Worker Template
-
-This file provides instructions on how to use this template to create a new OpenRelik worker.
-The placeholder `TEMPLATEWORKERNAME` needs to be replaced with the actual name of your worker.
-The `bootstrap.sh` script is designed to help with this process.
--->
-
-1.  **Bootstrap your new worker:**
-    Run the `bash bootstrap.sh` script located in the root of this template. This script will guide you through renaming `TEMPLATEWORKERNAME` to your chosen worker name throughout the project files (e.g., directory names, Python files, etc.).
-2.  **Update this README:**
-    After bootstrapping, manually replace all remaining instances of `TEMPLATEWORKERNAME` in this `README.md` file with your actual worker name. Also, fill in the description section below.
-3.  **Write Tests:**
-    Before or alongside developing your worker's core logic, start creating tests.
-    *   **Unit Tests:** Create unit tests for individual functions and classes within your worker's `src` directory. Place these in the `tests/` directory.
-    *   Refer to the "Test" section below for instructions on how to run your tests.
-4.  **Implement Worker Logic:**
-    Fill in the `src/tasks.py` file (and any other necessary modules) with the core functionality of your worker.
-5.  **Add LICENSE file:**
-    Add a License file to the repository.
-
-# Openrelik worker TEMPLATEWORKERNAME
+# Openrelik worker eztools
 ## Description
-**TODO:** Enter a comprehensive description of your worker here. Explain its purpose, what kind of tasks it handles, and any specific functionalities or integrations it provides.
+
+The **OpenRelik EZTools Worker** is a Celery-based task processor designed to execute various command-line forensic tools from Eric Zimmerman's EZTools suite. This worker allows users to leverage the power of these well-regarded digital forensic utilities within the OpenRelik platform, processing one or more input files and generating structured output.
+
+Currently, this worker supports the following EZTools:
+
+* **LECmd (LNK File Parser):** Parses LNK shortcut files and related artifacts.
+* **RBCmd (Recycle Bin Parser):** Parses $I/$R files from the Recycle Bin.
+
+For each input file, the selected EZTool is executed. The worker captures the standard output (STDOUT) of the tool and saves it to an output file 
+(e.g., `original_filename_lecmd.txt`). If an error occurs during processing, the task will reflect this.
+
 
 ## Deploy
-Add the below configuration to the OpenRelik docker-compose.yml file.
+
+Add the below configuration to the OpenRelik `docker-compose.yml` file.
 
 ```
-openrelik-worker-TEMPLATEWORKERNAME:
-    container_name: openrelik-worker-TEMPLATEWORKERNAME
-    image: ghcr.io/openrelik/openrelik-worker-TEMPLATEWORKERNAME:latest
+openrelik-worker-eztools:
+    container_name: openrelik-worker-eztools
+    image: ghcr.io/openrelik/openrelik-worker-eztools:latest
     restart: always
     environment:
       - REDIS_URL=redis://openrelik-redis:6379
       - OPENRELIK_PYDEBUG=0
     volumes:
       - ./data:/usr/share/openrelik/data
-    command: "celery --app=src.app worker --task-events --concurrency=4 --loglevel=INFO -Q openrelik-worker-TEMPLATEWORKERNAME"
+    command: "celery --app=src.app worker --task-events --concurrency=4 --loglevel=INFO -Q openrelik-worker-eztools"
     # ports:
       # - 5678:5678 # For debugging purposes.
 ```
+
+## Configuration
+
+This worker provides task-specific configurations through the OpenRelik UI when dispatching a task. For each supported EZTool (e.g., LECmd, RBCmd), you can typically configure:
+
+* **Tool-Specific Arguments:** Additional command-line arguments to pass to the selected EZTool (e.g., --csv C:\temp\out for LECmd). The input file path will be appended automatically by the worker.
+        Note: This worker is designed to capture the standard output of the tools. Ensure any arguments provided are compatible with this behavior (i.e., the tool should print its primary output to STDOUT).
+
+TODO: figure out the output format
+* **Output File Extension:** The desired file extension for the output file that will store the captured STDOUT (e.g., txt, csv, json).
+* **Output Data Type (Optional):** A specific data type string for OpenReLiK's internal metadata tracking (e.g., `lnk_file_analysis`, `recycle_bin_parsed`).
+
+## Code Coverage
+
+![Code Coverage](coverage.svg)
+
+## Credit
+
+Credit for the content of the worker goes to Eric Zimmerman
+
+Download Eric Zimmerman's Tools
+All of Eric Zimmerman's tools can be downloaded here: https://ericzimmerman.github.io/#!index.md.
+
 
 ## Test
 ```

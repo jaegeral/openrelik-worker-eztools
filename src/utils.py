@@ -1,0 +1,127 @@
+import subprocess
+import os
+
+from openrelik_worker_common.file_utils import create_output_file
+from openrelik_worker_common.task_utils import create_task_result, get_input_files
+
+
+def _run_ez_tool(
+    executable_command_list: list,  # e.g., ["mono", "/opt/eztools/LECmd.exe"] or ["/usr/bin/native_tool"]
+    tool_display_name: str,  # e.g., "LECmd.exe" for logging and output file naming
+    tool_file_argument_flag: str,  # e.g., "-f" for file or "-d" for directory
+    tool_specific_args_key: str,
+    pipe_result: str,
+    input_files: list,
+    output_path: str,
+    workflow_id: str,
+    task_config: dict,
+) -> str:
+    """Helper function to run an EZTool."""
+    input_files = get_input_files(pipe_result, input_files or [])
+    output_files = []
+
+    user_provided_args_str = task_config.get(tool_specific_args_key, "")
+    user_provided_args_list = (
+        user_provided_args_str.split() if user_provided_args_str else []
+    )
+
+    # For reporting purposes, show the tool name and user arguments
+    reporting_command_string = (
+        f"{tool_display_name} {tool_file_argument_flag} <input_file_path>"
+    )
+    if user_provided_args_str:  # Only add if there are actual arguments
+        reporting_command_string += f" {user_provided_args_str}"
+
+    output_extension = task_config.get("output_file_extension", "txt")
+    output_data_type = task_config.get("output_data_type", "text_file")
+
+    if not input_files:
+        raise ValueError(f"No input files provided to {tool_display_name}.")
+
+    for input_file in input_files:
+        input_file_path = input_file.get("path")
+        input_file_display_name = input_file.get("display_name", "unknown_file")
+
+        if not input_file_path:
+            print(
+                f"Error: Input file for {tool_display_name} is missing a valid 'path'. "
+                f"Input file details: {input_file}"
+            )
+            raise ValueError(
+                f"Invalid or missing file path for input: {input_file_display_name}"
+            )
+
+        print(
+            f"Attempting to process file for {tool_display_name}: '{input_file_path}'"
+        )
+        if not os.path.exists(input_file_path):
+            print(
+                f"Error: File does NOT exist at path: '{input_file_path}' (checked with os.path.exists)"
+            )
+            raise FileNotFoundError(
+                f"Input file for {tool_display_name} not found by worker at specified path: {input_file_path}"
+            )
+        if not os.access(input_file_path, os.R_OK):
+            print(
+                f"Error: File exists but is NOT readable at path: '{input_file_path}' (checked with os.access)"
+            )
+            raise PermissionError(
+                f"Input file for {tool_display_name} is not readable by worker at path: {input_file_path}"
+            )
+        print(f"File '{input_file_path}' exists and is readable by the worker.")
+
+        output_file_obj = create_output_file(
+            output_path,
+            display_name=f"{tool_display_name}_output_for_{input_file_display_name}",
+            extension=output_extension,
+            data_type=output_data_type,
+        )
+        current_command_to_run = (
+            executable_command_list
+            + [tool_file_argument_flag, input_file_path]
+            + user_provided_args_list
+        )
+
+        print(
+            f"Executing command for {tool_display_name}: {' '.join(current_command_to_run)}"
+        )
+
+        try:
+            process = subprocess.run(
+                current_command_to_run, capture_output=True, text=True, check=True
+            )
+            with open(output_file_obj.path, "w", encoding="utf-8") as fh:
+                fh.write(process.stdout)
+            if process.stderr:
+                print(
+                    f"Tool {tool_display_name} stderr for {input_file_path}:\n{process.stderr}"
+                )
+        except subprocess.CalledProcessError as e:
+            error_message = (
+                f"Error running {tool_display_name} on {input_file_path}.\n"
+                f"Command: '{' '.join(e.cmd)}'.\n"
+                f"Return code: {e.returncode}\n"
+                f"Stdout: {e.stdout}\nStderr: {e.stderr}"
+            )
+            raise RuntimeError(error_message) from e
+        except FileNotFoundError as e:
+            if e.filename == executable_command_list[0]:
+                raise FileNotFoundError(
+                    f"The command '{executable_command_list[0]}' (e.g., dotnet or mono) was not found. "
+                    "Ensure it is in the system's PATH or provide the full path."
+                ) from e
+            else:
+                print(f"Unexpected FileNotFoundError for: {e.filename}")
+                raise
+
+        output_files.append(output_file_obj.to_dict())
+
+    if not output_files:
+        raise RuntimeError(f"No output files were generated by {tool_display_name}.")
+
+    return create_task_result(
+        output_files=output_files,
+        workflow_id=workflow_id,
+        command=reporting_command_string,
+        meta={},
+    )

@@ -8,8 +8,40 @@ RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selectio
 # Install poetry and any other dependency that your worker needs.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-poetry \
-    # Add your dependencies here
+    wget \
+    apt-transport-https \
+    software-properties-common \
+    unzip \
+    git \
+    # Add other apt dependencies here if needed
     && rm -rf /var/lib/apt/lists/*
+
+# Install .NET9 (change --channel if you'd prefer a different version)
+RUN wget https://builds.dotnet.microsoft.com/dotnet/scripts/v1/dotnet-install.sh -O /tmp/dotnet-install.sh
+RUN chmod +x /tmp/dotnet-install.sh
+RUN /tmp/dotnet-install.sh --channel 9.0
+RUN rm -r /tmp/dotnet-install.sh
+# Add .NET tools to PATH for subsequent RUN commands and for the final container environment
+ENV PATH="/root/.dotnet:${PATH}"
+
+### BUILD it locally with a git clone
+ARG LECMD_GIT_REPO_URL=https://github.com/EricZimmerman/LECmd.git
+ARG LECMD_GIT_BRANCH=master # Or specify a tag like 'v1.5.1.0' or a commit hash
+RUN git clone --branch ${LECMD_GIT_BRANCH} --depth 1 ${LECMD_GIT_REPO_URL} /tmp/LECmd_source_build
+WORKDIR /tmp/LECmd_source_build
+RUN dotnet publish ./LECmd/LECmd.csproj --framework net9.0 -c Release --no-self-contained -o /opt/LECmd_built_from_source
+WORKDIR /
+RUN rm -rf /tmp/LECmd_source_build
+
+### BUILD it locally with a git clone
+ARG RBCmd_GIT_REPO_URL=https://github.com/EricZimmerman/RBCmd.git
+ARG RBCmd_GIT_BRANCH=master # Or specify a tag like 'v1.5.1.0' or a commit hash
+RUN git clone --branch ${RBCmd_GIT_BRANCH} --depth 1 ${RBCmd_GIT_REPO_URL} /tmp/RBCmd_source_build
+WORKDIR /tmp/RBCmd_source_build
+RUN dotnet publish ./RBCmd/RBCmd.csproj --framework net9.0 -c Release --no-self-contained -o /opt/RBCmd_built_from_source
+WORKDIR /
+RUN rm -rf /tmp/RBCmd_source_build
+
 
 # Configure poetry
 ENV POETRY_NO_INTERACTION=1 \
