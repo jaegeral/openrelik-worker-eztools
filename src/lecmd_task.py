@@ -30,13 +30,16 @@ LECMD_TASK_METADATA = {
 LECMD_OUTPUT_FORMAT_CONFIG = {
     "csv": {
         "flag": "--csv",
-        "pattern": "*_LECmd.exe.csv",  # Expects full file path
-        "output_target_type": "file",
+        # LECmd --csv expects a directory and creates a file like YYYYMMDDHHMMSS_LECmd_Output.csv inside it.
+        "pattern": "*_LECmd_Output.csv",
+        "output_target_type": "directory",
     },
     "json": {
         "flag": "--json",
-        "pattern": "*_LECmd.exe.json",
-        "output_target_type": "file",  # Expects full file path
+        # Based on observed behavior and similarity to --csv, assume --json also expects a directory
+        # and creates a file inside it. Guessing the pattern.
+        "pattern": "*_LECmd_Output.json",
+        "output_target_type": "directory",
     },
 }
 

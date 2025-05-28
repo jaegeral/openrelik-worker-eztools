@@ -34,10 +34,11 @@ ACC_OUTPUT_FORMAT_CONFIG = {
     },
     "csvf": {  # For the tool's --csvf <filepath> flag
         "flag": "--csvf",
-        "pattern": "*_AppCompatCacheParser.exe.csv",  # The actual file will be .csv, named by --csvf
-        "output_target_type": "directory_with_filename", # New type
-        "directory_flag": "--csv", # The associated directory flag
-        # The filename itself will be constructed by _run_ez_tool
+        # Pattern should match the filename worker constructs and passes to the tool.
+        # Worker constructs filename like: {input_base}_{tool_display_name}.{selected_format}
+        # e.g., myinput_AppCompatCacheParser.exe.csvf
+        "pattern": "*_AppCompatCacheParser.exe.csvf",
+        "output_target_type": "directory_with_filename",
     },
 }
 

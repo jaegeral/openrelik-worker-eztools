@@ -127,6 +127,8 @@ def _run_ez_tool(
         ):
             format_details = tool_output_format_config[selected_output_format]
             format_flag = format_details["flag"]
+            # Get the output_target_type, defaulting to "file" if not specified
+            output_target_type = format_details.get("output_target_type", "file")
 
             # Check if user accidentally provided the same flag
             if format_flag in user_provided_args_list:
@@ -134,20 +136,39 @@ def _run_ez_tool(
                     f"Warning: User provided '{format_flag}' in arguments while also selecting '{selected_output_format}' format. "
                     f"The worker will manage the '{format_flag}' argument. Please remove it from custom arguments if this was unintentional."
                 )
-                # Optionally, remove it from user_provided_args_list to avoid conflict, though tool might handle duplicates.
 
             temp_output_dir = tempfile.mkdtemp(
                 prefix=f"eztool_{selected_output_format}_"
             )
-            # Construct a full file path for the output within the temp_output_dir
-            # Use a predictable name based on the input file and format.
-            # The pattern in tool_output_format_config should match this.
-            base_input_filename = Path(input_file_path).stem
-            temp_output_filename = (
-                f"{base_input_filename}_{tool_display_name}.{selected_output_format}"
-            )
-            full_temp_output_path = Path(temp_output_dir) / temp_output_filename
-            current_command_to_run.extend([format_flag, str(full_temp_output_path)])
+
+            # Determine the actual argument to pass to the tool for its output destination
+            tool_output_destination_arg = ""
+            if output_target_type == "directory":
+                tool_output_destination_arg = temp_output_dir
+            elif (
+                output_target_type == "file"
+                or output_target_type == "directory_with_filename"
+            ):
+                # For "file" and "directory_with_filename", the worker constructs a full file path
+                # that the tool is expected to write to.
+                base_input_filename = Path(input_file_path).stem
+                # The filename includes the tool's display name and the selected format (which becomes the extension)
+                # Example: inputfile_LECmd.exe.csv or inputfile_AppCompatCacheParser.exe.csvf
+                temp_output_filename = f"{base_input_filename}_{tool_display_name}.{selected_output_format}"
+                full_temp_output_path = Path(temp_output_dir) / temp_output_filename
+                tool_output_destination_arg = str(full_temp_output_path)
+            else:
+                # Fallback for unknown or misconfigured output_target_type
+                print(
+                    f"Warning: Unknown output_target_type '{output_target_type}' for format '{selected_output_format}'. "
+                    f"Defaulting to constructing a file path argument."
+                )
+                base_input_filename = Path(input_file_path).stem
+                temp_output_filename = f"{base_input_filename}_{tool_display_name}.{selected_output_format}"
+                full_temp_output_path = Path(temp_output_dir) / temp_output_filename
+                tool_output_destination_arg = str(full_temp_output_path)
+
+            current_command_to_run.extend([format_flag, tool_output_destination_arg])
 
         print(
             f"Executing command for {tool_display_name}: {' '.join(current_command_to_run)}"
@@ -201,12 +222,12 @@ def _run_ez_tool(
                     )
                     == "directory"
                 ):
-                    generated_files = list(
-                        Path(temp_output_dir).rglob(filename_pattern)
-                    )
-                else:
-                    generated_files = list(Path(temp_output_dir).glob(filename_pattern))
+                    all_matches = list(Path(temp_output_dir).rglob(filename_pattern))
+                    generated_files = [p for p in all_matches if p.is_file()]
 
+                else:
+                    all_matches = list(Path(temp_output_dir).glob(filename_pattern))
+                    generated_files = [p for p in all_matches if p.is_file()]
                 if not generated_files:
                     error_message = (
                         f"Error: {tool_display_name} did not produce the expected '{selected_output_format}' file "
