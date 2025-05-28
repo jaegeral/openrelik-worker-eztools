@@ -24,7 +24,7 @@ RUN rm -r /tmp/dotnet-install.sh
 # Add .NET tools to PATH for subsequent RUN commands and for the final container environment
 ENV PATH="/root/.dotnet:${PATH}"
 
-### BUILD it locally with a git clone
+### BUILD LECmd locally with a git clone
 ARG LECMD_GIT_REPO_URL=https://github.com/EricZimmerman/LECmd.git
 ARG LECMD_GIT_BRANCH=master # Or specify a tag like 'v1.5.1.0' or a commit hash
 RUN git clone --branch ${LECMD_GIT_BRANCH} --depth 1 ${LECMD_GIT_REPO_URL} /tmp/LECmd_source_build
@@ -33,7 +33,7 @@ RUN dotnet publish ./LECmd/LECmd.csproj --framework net9.0 -c Release --no-self-
 WORKDIR /
 RUN rm -rf /tmp/LECmd_source_build
 
-### BUILD it locally with a git clone
+### BUILD RBCmd locally with a git clone
 ARG RBCmd_GIT_REPO_URL=https://github.com/EricZimmerman/RBCmd.git
 ARG RBCmd_GIT_BRANCH=master # Or specify a tag like 'v1.5.1.0' or a commit hash
 RUN git clone --branch ${RBCmd_GIT_BRANCH} --depth 1 ${RBCmd_GIT_REPO_URL} /tmp/RBCmd_source_build
@@ -42,6 +42,25 @@ RUN dotnet publish ./RBCmd/RBCmd.csproj --framework net9.0 -c Release --no-self-
 WORKDIR /
 RUN rm -rf /tmp/RBCmd_source_build
 
+# --- Build AppCompatCacheParser ---
+ARG ACC_REPO_URL=https://github.com/EricZimmerman/AppCompatCacheParser.git
+ARG ACC_SRC_DIR_TMP=/tmp/AppCompatCacheParser_src
+
+RUN git clone ${ACC_REPO_URL} ${ACC_SRC_DIR_TMP}
+
+# The AppCompatCacheParser.csproj is inside a subdirectory named 'AppCompatCacheParser'
+RUN cd ${ACC_SRC_DIR_TMP}/AppCompatCacheParser && \
+    dotnet publish AppCompatCacheParser.csproj \
+    -c Release \
+    --framework net9.0 \
+    -o /app/publish_acc \
+    --no-self-contained \
+    /p:UseAppHost=false
+
+RUN mkdir -p /opt/AppCompatCacheParser_built_from_source
+# Copy all published files (dll, runtimeconfig.json, deps.json, etc.)
+RUN cp /app/publish_acc/* /opt/AppCompatCacheParser_built_from_source/
+RUN rm -rf ${ACC_SRC_DIR_TMP} /app/publish_acc
 
 # Configure poetry
 ENV POETRY_NO_INTERACTION=1 \

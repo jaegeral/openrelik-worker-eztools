@@ -1,3 +1,17 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 
 from .app import celery
@@ -12,27 +26,27 @@ RBCMD_TASK_METADATA = {
     "description": "Runs RBCmd.exe from Eric Zimmermann's EZTools to parse Recycle Bin artifacts. Captures standard output.",
     "task_config": [
         {
-            "name": "rbcmd_arguments",
-            "label": "RBCmd Arguments (Optional)",
-            "description": "Additional command-line arguments for RBCmd.exe (e.g., '-d C:\\path\\to\\recyclebin --csv C:\\temp\\out'). The input file path (if applicable for specific RBCmd use cases, e.g. processing a single $I file) or directory will be appended. Note: This worker captures standard output; ensure arguments are compatible.",
-            "type": "textarea",
-            "required": False,
-        },
-        {
-            "name": "output_file_extension",
-            "label": "Output File Extension",
-            "description": "File extension for the output (e.g., 'csv', 'txt'). RBCmd's standard output will be saved with this extension.",
-            "type": "text",
+            "name": "output_format",
+            "label": "Output Format",
+            "description": "Select the output format. 'stdout' captures console output. Other options use RBCmd's direct file generation (e.g., --csv).",
+            "type": "select",
+            "items": [
+                "stdout",
+                "csv",
+            ],
+            "default": "stdout",
             "required": True,
         },
-        {
-            "name": "output_data_type",
-            "label": "Output Data Type (Optional)",
-            "description": "A specific data type for the output file, used for metadata in OpenReLiK (e.g., 'recycle_bin_analysis').",
-            "type": "text",
-            "required": False,
-        },
     ],
+}
+
+# Tool-specific configuration for output formats
+RBCMD_OUTPUT_FORMAT_CONFIG = {
+    "csv": {
+        "flag": "--csv",
+        "pattern": "*_RBCmd_Output.csv",  # Pattern to match RBCmd's default output filename
+        "output_target_type": "directory",  # RBCmd --csv expects a directory
+    },
 }
 
 
@@ -55,8 +69,9 @@ def rbcmd_command(
     return _run_ez_tool(
         executable_command_list=executable_list_for_rbcmd,
         tool_display_name="RBCmd.exe",
-        tool_file_argument_flag="-f",  # Verify this flag for RBCmd
-        tool_specific_args_key="rbcmd_arguments",
+        tool_file_argument_flag="-f",
+        tool_specific_args_key=None,  # Explicitly no custom arguments from UI for this task
+        tool_output_format_config=RBCMD_OUTPUT_FORMAT_CONFIG,
         pipe_result=pipe_result,
         input_files=input_files,
         output_path=output_path,

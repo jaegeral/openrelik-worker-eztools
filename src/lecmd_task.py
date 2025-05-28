@@ -7,32 +7,37 @@ from .utils import _run_ez_tool  # Import from the new utils.py
 LECMD_TASK_NAME = "openrelik-worker-eztools.tasks.lecmd"
 LECMD_TASK_METADATA = {
     "display_name": "EZTool: LECmd (LNK File Parser)",
-    "description": "Runs LECmd.exe from Eric Zimmermann's EZTools to parse LNK files. Captures standard output.",
-    # Configuration that will be rendered as a web for in the UI, and any data entered
+    "description": "Runs LECmd.exe from Eric Zimmermann's EZTools to parse LNK files. (only output format csv or json supported)",
     # by the user will be available to the task function when executing (task_config).
     "task_config": [
         {
-            "name": "lecmd_arguments",
-            "label": "LECmd Arguments (Optional)",
-            "description": "Additional command-line arguments for LECmd.exe (e.g., '--csv C:\\temp\\out'). The input file path will be appended automatically. Note: This worker captures standard output; ensure arguments are compatible.",
-            "type": "textarea",
-            "required": False,
-        },
-        {
-            "name": "output_file_extension",
-            "label": "Output File Extension",
-            "description": "File extension for the output (e.g., 'csv', 'json', 'txt'). LECmd's standard output will be saved with this extension.",
-            "type": "text",
+            "name": "output_format",
+            "label": "Output Format",
+            "description": "Select the output format. 'stdout' captures console output. Other options use LECmd's direct file generation (e.g., --csv).",
+            "type": "select",
+            "items": [
+                "stdout",
+                "csv",
+                "json",
+            ],
+            "default": "stdout",
             "required": True,
         },
-        {
-            "name": "output_data_type",
-            "label": "Output Data Type (Optional)",
-            "description": "A specific data type for the output file, used for metadata in OpenReLiK (e.g., 'lnk_file_analysis').",
-            "type": "text",
-            "required": False,
-        },
     ],
+}
+
+# Tool-specific configuration for output formats
+LECMD_OUTPUT_FORMAT_CONFIG = {
+    "csv": {
+        "flag": "--csv",
+        "pattern": "*_LECmd.exe.csv",  # Expects full file path
+        "output_target_type": "file",
+    },
+    "json": {
+        "flag": "--json",
+        "pattern": "*_LECmd.exe.json",
+        "output_target_type": "file",  # Expects full file path
+    },
 }
 
 
@@ -78,6 +83,7 @@ def lecmd_command(
         tool_display_name="LECmd.exe",  # For display, logging, and output file naming
         tool_file_argument_flag="-f",  # LECmd uses -f for files
         tool_specific_args_key="lecmd_arguments",
+        tool_output_format_config=LECMD_OUTPUT_FORMAT_CONFIG,
         pipe_result=pipe_result,
         input_files=input_files,
         output_path=output_path,

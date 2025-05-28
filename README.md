@@ -1,12 +1,14 @@
 # Openrelik worker eztools
-## Description
 
-The **OpenRelik EZTools Worker** is a Celery-based task processor designed to execute various command-line forensic tools from Eric Zimmerman's EZTools suite. This worker allows users to leverage the power of these well-regarded digital forensic utilities within the OpenRelik platform, processing one or more input files and generating structured output.
+The **OpenRelik EZTools Worker** is a Celery-based task processor designed to execute various command-line forensic tools from Eric Zimmerman's EZTools suite. This worker allows you to run selected command-line tools from Eric Zimmermann's EZTools suite (e.g., `LECmd`, `RBCmd`, `AppCompatCacheParser`) on input files. It captures the standard output of these tools and makes it available for further processing or storage within the OpenReLiK platform.
+
 
 Currently, this worker supports the following EZTools:
 
 * **LECmd (LNK File Parser):** Parses LNK shortcut files and related artifacts.
-* **RBCmd (Recycle Bin Parser):** Parses $I/$R files from the Recycle Bin.
+* **RBCmd (Recycle Bin Command Line):** Parses `$I` and `$R` files from the Windows Recycle Bin.
+* **AppCompatCacheParser:** Parses AppCompatCache (ShimCache) data from SYSTEM registry hives.
+
 
 For each input file, the selected EZTool is executed. The worker captures the standard output (STDOUT) of the tool and saves it to an output file 
 (e.g., `original_filename_lecmd.txt`). If an error occurs during processing, the task will reflect this.
